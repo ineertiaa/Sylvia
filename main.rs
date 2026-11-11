@@ -5,10 +5,22 @@ use console::{Key, Term};
 use std::io;
 
 use colored::Colorize;
+use figlet_rs::{FIGlet, Toilet};
 
-fn main(){
+fn main() -> Result<(), Box<dyn std::error::Error>>{
     clearscreen::clear().expect("couldn't clear.");
+
+    let font = Toilet::mono9().unwrap();
+    let title = font.convert("Sylvia").expect("couldn't make title ascii :(");
+    println!("{}", title.to_string().truecolor(212, 123, 198));
+    println!("{}", "press any key to search.".truecolor(204, 71, 184));
+
+    let term = Term::stdout();
+    let _ = term.read_key()?;
+
     search();
+
+    Ok(())
 }
 
 fn search(){

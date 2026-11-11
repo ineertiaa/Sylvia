@@ -8,6 +8,7 @@ serde_json = "1.0"
 clearscreen = "5.0.0"
 colored = "3"
 console = "0.15"
+figlet-rs = "1.0"
 
 [[bin]]
 name = "Sylvia"
