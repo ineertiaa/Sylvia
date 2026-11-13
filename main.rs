@@ -1,26 +1,90 @@
 use std::process::Command;
+use std::io::Write;
+use std::net::{SocketAddr, TcpStream};
+use std::time::Duration;
+
 use serde_json::Value;
 use console::{Key, Term};
 
 use std::io;
 
 use colored::Colorize;
-use figlet_rs::{FIGlet, Toilet};
+
+const TITLE: &str = "
+  ▄▄▄▄         ▀▀█             ▀          
+ █▀   ▀ ▄   ▄    █    ▄   ▄  ▄▄▄     ▄▄▄  
+ ▀█▄▄▄  ▀▄ ▄▀    █    ▀▄ ▄▀    █    ▀   █ 
+     ▀█  █▄█     █     █▄█     █    ▄▀▀▀█ 
+ ▀▄▄▄█▀  ▀█      ▀▄▄    █    ▄▄█▄▄  ▀▄▄▀█ 
+         ▄▀                               
+
+";
 
 fn main() -> Result<(), Box<dyn std::error::Error>>{
     clearscreen::clear().expect("couldn't clear.");
 
-    let font = Toilet::mono9().unwrap();
-    let title = font.convert("Sylvia").expect("couldn't make title ascii :(");
-    println!("{}", title.to_string().truecolor(212, 123, 198));
-    println!("{}", "press any key to search.".truecolor(204, 71, 184));
+    //let font = Toilet::mono9().unwrap();
+    //let title = font.convert("Sylvia").expect("couldn't make title ascii :(");
+    //println!("{}", title.to_string().truecolor(212, 123, 198));
 
-    let term = Term::stdout();
-    let _ = term.read_key()?;
-
-    search();
+    let _ = homescreen();
 
     Ok(())
+}
+
+fn homescreen() -> Result<(), Box<dyn std::error::Error>>{
+    showtitle(TITLE);
+
+    let nixver = Command::new("nix")
+        .arg("--version")
+        .output()
+        .expect("Couldn't get nix version.");
+
+    println!("nix: {}", String::from_utf8_lossy(&nixver.stdout));
+
+    if internetcheck(){
+        println!("{}", "Sylvia is ready to go. \n".truecolor(204, 71, 184).bold());
+        let _ = homeoptions();
+    }
+    else{
+        println!("{}", "Error: 8.8.8.8 DNS ping failed. Check your internet!".red().bold());
+    }
+
+    Ok(())
+}
+
+fn homeoptions() -> Result<(), Box<dyn std::error::Error>>{
+    print!("{} - {}", "S".black().on_yellow(), "Search for Packages  ".yellow());
+    print!("{} - {}", "L".black().on_cyan(), "List installed Packages  ".cyan());
+
+    std::io::stdout().flush().expect("output flushing didn't work.");
+
+    let term = Term::stdout();
+
+    loop {
+        match term.read_key()? {
+            Key::Char('s') | Key::Char('S') => {
+                search();
+                break;
+            }
+
+            Key::Char('l') | Key::Char('L') => {
+                listpkgs();
+                break;
+            }
+
+            _ => {}
+        }
+    }
+
+    Ok(())
+}
+
+fn internetcheck() -> bool{
+    let addr = SocketAddr::from(([8, 8, 8, 8], 53));
+    let timeout = Duration::from_secs(3);
+
+    TcpStream::connect_timeout(&addr, timeout).is_ok()
 }
 
 fn search(){
@@ -29,6 +93,18 @@ fn search(){
     let mut buffer = String::new();
     let _input = io::stdin().read_line(&mut buffer);
     let _ = display_pkginfo(buffer.trim());
+}
+
+fn listpkgs(){
+    clearscreen::clear().expect("couldn't clear.");
+
+    let _output = Command::new("nix")
+        .args(["profile", "list"])
+        .output()
+        .expect("couldn't list installed packages.");
+
+    println!("{}", String::from_utf8_lossy(&_output.stdout));
+
 }
 
 fn install(pkgname: &str) -> Result<(), Box<dyn std::error::Error>>{
@@ -67,38 +143,17 @@ fn install(pkgname: &str) -> Result<(), Box<dyn std::error::Error>>{
     Ok(())
 }
 
-fn test(pkgname: &str) -> Result<(), Box<dyn std::error::Error>>{
+fn test(pkgname: &str){
     println!("testing package...");
 
     let pkgquery = format!("nixpkgs#{}", pkgname);
 
-    let output = Command::new("nix")
+    let _output = Command::new("nix")
         .args(["run", &pkgquery])
         .status()
         .expect("couldn't test package.");
-
-    println!("Quit? (Y/n)");
-
-    let term = Term::stdout();
-
-    loop {
-        match term.read_key()? {
-            Key::Char('y') | Key::Char('Y') => {
-                clearscreen::clear().expect("couldn't clear.");
-                std::process::exit(0);
-            }
-
-            Key::Char('n') | Key::Char('N') => {
-                search();
-                break;
-            }
-
-            _ => {}
-        }
-    }
-
-    Ok(())
 }
+
 fn get_pkginfo(pkgname: &str) -> Result<Value, Box<dyn std::error::Error>>{
     let namequery = format!("nixpkgs#{}.meta", pkgname);
 
@@ -130,9 +185,9 @@ fn display_pkginfo(pkgname: &str) -> Result<(), Box<dyn std::error::Error>>{
     println!("Description: {:?}", description);
     println!("Homepage: {} \n \n", website);
 
-    println!("{} - {}", "I".black().on_green(), "Install this package".green());
-    println!("{} - {}", "S".black().on_blue(), "Search for another package".blue());
-    println!("{} - {}", "T".black().on_yellow(), "Test this package".yellow());
+    print!("{} - {}", "I".black().on_green(), "Install this package  ".green());
+    print!("{} - {}", "S".black().on_blue(), "Search for another package  ".blue());
+    print!("{} - {}", "T".black().on_yellow(), "Test this package  ".yellow());
 
     println!();
 
@@ -160,4 +215,12 @@ fn display_pkginfo(pkgname: &str) -> Result<(), Box<dyn std::error::Error>>{
     }
 
     Ok(())
+}
+
+fn showtitle(target: &str){
+    for cha in target.chars() {
+        print!("{}", cha.to_string().truecolor(212, 123, 198));
+        std::io::stdout().flush().expect("output flushing didn't work.");
+        std::thread::sleep(std::time::Duration::from_millis(3));
+    }
 }
