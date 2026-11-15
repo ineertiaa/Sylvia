@@ -59,6 +59,7 @@ fn homescreen() -> Result<(), Box<dyn std::error::Error>>{
 fn homeoptions() -> Result<(), Box<dyn std::error::Error>>{
     print!("{} - {}", "S".black().on_yellow(), "Search for Packages  ".yellow());
     print!("{} - {}", "L".black().on_cyan(), "List installed Packages  ".cyan());
+    print!("{} - {}", "Q".black().on_red(), "Quit \n \n".red());
 
     std::io::stdout().flush().expect("output flushing didn't work.");
 
@@ -74,6 +75,12 @@ fn homeoptions() -> Result<(), Box<dyn std::error::Error>>{
             Key::Char('l') | Key::Char('L') => {
                 let _ = listpkgs();
                 break;
+            }
+
+            Key::Char('q') | Key::Char('Q') => {
+                println!("{}", "Quitting, goodbye!".bold());
+                std::thread::sleep(std::time::Duration::from_millis(1000));
+                std::process::exit(0);
             }
 
             _ => {}
@@ -157,6 +164,8 @@ fn test(pkgname: &str) -> Result<(), Box<dyn std::error::Error>>{
 
     std::thread::sleep(std::time::Duration::from_millis(1000));
 
+    clearscreen::clear().expect("couldn't clear.");
+
     let pkgquery = format!("nixpkgs#{}", pkgname);
 
     let _output = Command::new("nix")
@@ -212,7 +221,7 @@ fn display_pkginfo(pkgname: &str) -> Result<(), Box<dyn std::error::Error>>{
 
     print!("{} - {}", "I".black().on_green(), "Install this package  ".green());
     print!("{} - {}", "S".black().on_blue(), "Search for another package  ".blue());
-    print!("{} - {}", "T".black().on_yellow(), "Test this package  ".yellow());
+    print!("{} - {}", "T".black().on_yellow(), "Test this package \n \n".yellow());
 
     if checkinstalled(&pkgname){
         print!("{} - {}", "U".black().on_red(), "Uninstall this package  ".red());
