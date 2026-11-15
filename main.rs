@@ -10,6 +10,11 @@ use std::io;
 
 use colored::Colorize;
 
+// dear programmer (or user) reading this,
+// there may be inconsistencies or imperfections within,
+// but the real code is the friends we made along the way
+// good luck.
+
 const TITLE: &str = "
   ▄▄▄▄         ▀▀█             ▀          
  █▀   ▀ ▄   ▄    █    ▄   ▄  ▄▄▄     ▄▄▄  
@@ -23,17 +28,15 @@ const TITLE: &str = "
 fn main() -> Result<(), Box<dyn std::error::Error>>{
     clearscreen::clear().expect("couldn't clear.");
 
-    //let font = Toilet::mono9().unwrap();
-    //let title = font.convert("Sylvia").expect("couldn't make title ascii :(");
-    //println!("{}", title.to_string().truecolor(212, 123, 198));
-
     let _ = homescreen();
 
     Ok(())
 }
 
 fn homescreen() -> Result<(), Box<dyn std::error::Error>>{
-    showtitle(TITLE);
+    clearscreen::clear().expect("couldn't clear.");
+
+    typewriter(TITLE, (212, 123, 198), 3);
 
     let nixver = Command::new("nix")
         .arg("--version")
@@ -69,7 +72,7 @@ fn homeoptions() -> Result<(), Box<dyn std::error::Error>>{
             }
 
             Key::Char('l') | Key::Char('L') => {
-                listpkgs();
+                let _ = listpkgs();
                 break;
             }
 
@@ -89,22 +92,38 @@ fn internetcheck() -> bool{
 
 fn search(){
     clearscreen::clear().expect("couldn't clear.");
-    println!("Search for a package:");
+    print!(" ");
+    std::io::stdout().flush().expect("output flushing didn't work.");
+
     let mut buffer = String::new();
     let _input = io::stdin().read_line(&mut buffer);
     let _ = display_pkginfo(buffer.trim());
 }
 
-fn listpkgs(){
+fn listpkgs() -> Result<(), Box<dyn std::error::Error>>{
     clearscreen::clear().expect("couldn't clear.");
 
     let _output = Command::new("nix")
-        .args(["profile", "list"])
+        .args(["profile", "list", "--json"])
         .output()
         .expect("couldn't list installed packages.");
 
-    println!("{}", String::from_utf8_lossy(&_output.stdout));
+    let json: Value = serde_json::from_str(&String::from_utf8_lossy(&_output.stdout)).expect("couldn't convert package string to json :(");
 
+    for name in json["elements"].as_object().expect("missing elements :(").keys() {
+        let nameandnewline = format!("{} \n", name); //sorry for bad variable name im tired
+
+        typewriter(&nameandnewline, (255, 255, 255), 10);
+    }
+
+    println!("\n{}", "Press any key to return home. \n".bold());
+
+    let term = Term::stdout();
+    let _key = term.read_key()?;
+
+    let _ = homescreen();
+
+    Ok(())
 }
 
 fn install(pkgname: &str) -> Result<(), Box<dyn std::error::Error>>{
@@ -118,33 +137,25 @@ fn install(pkgname: &str) -> Result<(), Box<dyn std::error::Error>>{
     if output.status.success(){
         println!("{}", String::from_utf8_lossy(&output.stderr));
         println!("Installed!");
-
-        let term = Term::stdout();
-        println!("Quit? (Y/n)");
-
-        loop {
-            match term.read_key()? {
-                Key::Char('y') | Key::Char('Y') => {
-                    clearscreen::clear().expect("couldn't clear.");
-                    std::process::exit(0);
-                }
-
-                Key::Char('n') | Key::Char('N') => {
-                    search();
-                    break;
-                }
-
-                _ => {}
-            }
-        }
-
     }
+
+    println!("\n{}", "Press any key to return home. \n".bold());
+
+    let term = Term::stdout();
+    let _key = term.read_key()?;
+    
+    let _ = homescreen();
 
     Ok(())
 }
 
-fn test(pkgname: &str){
+fn test(pkgname: &str) -> Result<(), Box<dyn std::error::Error>>{
+    clearscreen::clear().expect("couldn't clear.");
+
     println!("testing package...");
+    println!("{}", "press Q to quit the command.".yellow().bold());
+
+    std::thread::sleep(std::time::Duration::from_millis(1000));
 
     let pkgquery = format!("nixpkgs#{}", pkgname);
 
@@ -152,6 +163,18 @@ fn test(pkgname: &str){
         .args(["run", &pkgquery])
         .status()
         .expect("couldn't test package.");
+
+    print!("\x1b[?25h"); 
+    std::io::stdout().flush().unwrap();
+
+    println!("\n{}", "Press any key to return home. \n".bold());
+
+    let term = Term::stdout();
+    let _key = term.read_key()?;
+
+    let _ = homescreen();
+
+    Ok(())
 }
 
 fn get_pkginfo(pkgname: &str) -> Result<Value, Box<dyn std::error::Error>>{
@@ -172,9 +195,11 @@ fn get_pkginfo(pkgname: &str) -> Result<Value, Box<dyn std::error::Error>>{
 }
 
 fn display_pkginfo(pkgname: &str) -> Result<(), Box<dyn std::error::Error>>{
-    clearscreen::clear().expect("couldn't clear.");
+    println!("{}", "searching...".bold());
 
     let json = get_pkginfo(pkgname).unwrap();
+
+    clearscreen::clear().expect("couldn't clear.");
 
     let name = json.get("mainProgram").and_then(Value::as_str).unwrap();
     let description = json.get("description").and_then(Value::as_str).unwrap();
@@ -189,14 +214,18 @@ fn display_pkginfo(pkgname: &str) -> Result<(), Box<dyn std::error::Error>>{
     print!("{} - {}", "S".black().on_blue(), "Search for another package  ".blue());
     print!("{} - {}", "T".black().on_yellow(), "Test this package  ".yellow());
 
-    println!();
+    if checkinstalled(&pkgname){
+        print!("{} - {}", "U".black().on_red(), "Uninstall this package  ".red());
+    }
+
+    std::io::stdout().flush().expect("output flushing didn't work.");
 
     let term = Term::stdout();
 
     loop {
         match term.read_key()? {
             Key::Char('i') | Key::Char('I') => {
-                println!("installing...");
+                println!();
                 let _ = install(&pkgname);
             }
 
@@ -210,6 +239,12 @@ fn display_pkginfo(pkgname: &str) -> Result<(), Box<dyn std::error::Error>>{
                 break;
             }
 
+            Key::Char('u') | Key::Char('U') => {
+                if checkinstalled(&pkgname){
+                    let _ = uninstallpkg(&pkgname);
+                }
+            }
+
             _ => {}
         }
     }
@@ -217,10 +252,55 @@ fn display_pkginfo(pkgname: &str) -> Result<(), Box<dyn std::error::Error>>{
     Ok(())
 }
 
-fn showtitle(target: &str){
+fn uninstallpkg(pkg: &str) -> Result<(), Box<dyn std::error::Error>>{
+    let pkgquery = format!("{}", pkg);
+
+    let output = Command::new("nix")
+        .args(["profile", "remove", &pkgquery])
+        .output()
+        .expect("couldn't remove package.");
+
+    // not needed, it just adds clunkiness to the terminal that people don't care about.
+    // println!("\n{:?}", String::from_utf8_lossy(&outpout.stderr));
+
+    if output.status.success(){
+        println!("\nremoved package!");
+    }
+    else{
+        println!("{}", "package removing failed..".red());
+    }
+
+    println!("\n{}", "Press any key to return home.".bold());
+
+    let term = Term::stdout();
+    let _key = term.read_key()?;
+
+    let _ = homescreen();
+
+    Ok(())
+}
+
+fn checkinstalled(pkg: &str) -> bool {
+    Command::new("nix")
+        .args(["profile", "list"])
+        .output()
+        .map(|o| {
+            let out = String::from_utf8_lossy(&o.stdout);
+
+            out.lines().any(|line| {
+                line.trim() == format!("Name: {pkg}")
+                    || line.trim().ends_with(&format!(".{pkg}"))
+            })
+        })
+        .unwrap_or(false)
+}
+
+fn typewriter(target: &str, colour: (u8, u8, u8), speed_milis: u64){
+    let (r, g, b) = colour;
+
     for cha in target.chars() {
-        print!("{}", cha.to_string().truecolor(212, 123, 198));
+        print!("{}", cha.to_string().truecolor(r, g, b));
         std::io::stdout().flush().expect("output flushing didn't work.");
-        std::thread::sleep(std::time::Duration::from_millis(3));
+        std::thread::sleep(std::time::Duration::from_millis(speed_milis));
     }
 }
