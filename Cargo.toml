@@ -11,5 +11,5 @@ console = "0.15"
 figlet-rs = "1.0"
 
 [[bin]]
-name = "Sylvia"
+name = "sylvia"
 path = "main.rs"

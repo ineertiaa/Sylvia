@@ -104,6 +104,7 @@ fn search(){
 
     let mut buffer = String::new();
     let _input = io::stdin().read_line(&mut buffer);
+    println!("{}", "searching...".bold());
     let _ = display_pkginfo(buffer.trim());
 }
 
@@ -156,7 +157,7 @@ fn install(pkgname: &str) -> Result<(), Box<dyn std::error::Error>>{
     Ok(())
 }
 
-fn test(pkgname: &str) -> Result<(), Box<dyn std::error::Error>>{
+fn test(pkgname: &str){
     clearscreen::clear().expect("couldn't clear.");
 
     println!("testing package...");
@@ -176,14 +177,7 @@ fn test(pkgname: &str) -> Result<(), Box<dyn std::error::Error>>{
     print!("\x1b[?25h"); 
     std::io::stdout().flush().unwrap();
 
-    println!("\n{}", "Press any key to return home. \n".bold());
-
-    let term = Term::stdout();
-    let _key = term.read_key()?;
-
-    let _ = homescreen();
-
-    Ok(())
+    let _ = display_pkginfo(&pkgname);
 }
 
 fn get_pkginfo(pkgname: &str) -> Result<Value, Box<dyn std::error::Error>>{
@@ -203,9 +197,7 @@ fn get_pkginfo(pkgname: &str) -> Result<Value, Box<dyn std::error::Error>>{
     Ok(parsed.to_owned())
 }
 
-fn display_pkginfo(pkgname: &str) -> Result<(), Box<dyn std::error::Error>>{
-    println!("{}", "searching...".bold());
-
+fn display_pkginfo(pkgname: &str) -> Result<(), Box<dyn std::error::Error>>{ 
     let json = get_pkginfo(pkgname).unwrap();
 
     clearscreen::clear().expect("couldn't clear.");
@@ -244,7 +236,7 @@ fn display_pkginfo(pkgname: &str) -> Result<(), Box<dyn std::error::Error>>{
             }
 
             Key::Char('t') | Key::Char('T') => {
-                let _ = test(&pkgname);
+                test(&pkgname);
                 break;
             }
 
