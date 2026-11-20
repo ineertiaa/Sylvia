@@ -5,6 +5,7 @@ use std::time::Duration;
 
 use serde_json::Value;
 use console::{Key, Term};
+use git2::{Direction, Repository};
 
 use std::io;
 
@@ -30,6 +31,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
 
     let _ = homescreen();
 
+    match checkver(){
+        Ok(true) => println!("up to date"),
+        Ok(false) => println!("needs update"),
+        Err(e) => println!("git error: {}", e),
+    }
+
     Ok(())
 }
 
@@ -43,7 +50,14 @@ fn homescreen() -> Result<(), Box<dyn std::error::Error>>{
         .output()
         .expect("Couldn't get nix version.");
 
-    println!("nixver: {}", String::from_utf8_lossy(&nixver.stdout));
+    match checkver(){
+        Ok(true) => println!("up to date"),
+        Ok(false) => println!("needs update"),
+        Err(e) => println!("git error: {}", e),
+    }
+
+    println!("nix version: {}", String::from_utf8_lossy(&nixver.stdout));
+    //println!("sylvia version: {}");
 
     if internetcheck(){
         println!("{}", "Sylvia is ready to go. \n".magenta().bold());
@@ -95,6 +109,28 @@ fn internetcheck() -> bool{
     let timeout = Duration::from_secs(3);
 
     TcpStream::connect_timeout(&addr, timeout).is_ok()
+}
+
+const REPO_PATH: &str = std::env!("CARGO_MANIFEST_DIR");
+
+fn checkver() -> Result<bool, git2::Error> {
+    let repo = Repository::open(REPO_PATH)?;
+
+    let id = repo.head()?.target().unwrap();
+
+    let mut remote = repo.find_remote("origin")?;
+    remote.connect(Direction::Fetch)?;
+
+    let remote_head = remote
+        .list()?
+        .iter()
+        .find(|head| head.name() == "HEAD")
+        .map(|head| head.oid());
+
+    match remote_head {
+        Some(remote_id) => Ok(id == remote_id),
+        None => Ok(false),
+    }
 }
 
 fn search(){

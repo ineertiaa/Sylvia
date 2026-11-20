@@ -9,6 +9,7 @@ clearscreen = "5.0.0"
 colored = "3"
 console = "0.15"
 figlet-rs = "1.0"
+git2 = "0.19"
 
 [[bin]]
 name = "sylvia"
