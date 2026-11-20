@@ -5,7 +5,9 @@ use std::time::Duration;
 
 use serde_json::Value;
 use console::{Key, Term};
+
 use git2::{Direction, Repository};
+use semver::Version;
 
 use std::io;
 
@@ -119,13 +121,16 @@ fn checkver() -> Result<bool, git2::Error> {
     let mut remote = repo.find_remote("origin")?;
     remote.connect(Direction::Fetch)?;
 
-    let tags: Vec<_> = remote
+    let latest = remote
         .list()?
         .iter()
-        .filter(|head| head.name().starts_with("refs/tags"))
-        .collect();
+        .filter_map(|head| head.name().strip_prefix("refs/tags/"))
+        .filter(|name| !name.ends_with("^{}"))
+        .filter_map(|name| Version::parse(name).ok())
+        .max();
 
-    Ok(!tags.is_empty())
+    remote.disconnect()?;
+    Ok(latest.is_some())
 }
 
 fn search(){

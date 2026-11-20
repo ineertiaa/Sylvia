@@ -609,6 +609,7 @@ dependencies = [
  "console",
  "figlet-rs",
  "git2",
+ "semver",
  "serde_json",
 ]
 
