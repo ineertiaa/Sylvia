@@ -14,7 +14,7 @@ use colored::Colorize;
 // dear programmer (or user) reading this,
 // there may be inconsistencies or imperfections within,
 // but the real code is the friends we made along the way
-// good luck.
+// good luck!
 
 const TITLE: &str = "
   ▄▄▄▄         ▀▀█             ▀          
