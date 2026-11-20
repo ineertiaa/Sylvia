@@ -116,21 +116,16 @@ const REPO_PATH: &str = std::env!("CARGO_MANIFEST_DIR");
 fn checkver() -> Result<bool, git2::Error> {
     let repo = Repository::open(REPO_PATH)?;
 
-    let id = repo.head()?.target().unwrap();
-
     let mut remote = repo.find_remote("origin")?;
     remote.connect(Direction::Fetch)?;
 
-    let remote_head = remote
+    let tags: Vec<_> = remote
         .list()?
         .iter()
-        .find(|head| head.name() == "HEAD")
-        .map(|head| head.oid());
+        .filter(|head| head.name().starts_with("refs/tags"))
+        .collect();
 
-    match remote_head {
-        Some(remote_id) => Ok(id == remote_id),
-        None => Ok(false),
-    }
+    Ok(!tags.is_empty())
 }
 
 fn search(){
