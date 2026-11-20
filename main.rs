@@ -36,17 +36,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
 fn homescreen() -> Result<(), Box<dyn std::error::Error>>{
     clearscreen::clear().expect("couldn't clear.");
 
-    typewriter(TITLE, (212, 123, 198), 3);
+    typewriter(TITLE, (204, 71, 184), 3);
 
     let nixver = Command::new("nix")
         .arg("--version")
         .output()
         .expect("Couldn't get nix version.");
 
-    println!("nix: {}", String::from_utf8_lossy(&nixver.stdout));
+    println!("nixver: {}", String::from_utf8_lossy(&nixver.stdout));
 
     if internetcheck(){
-        println!("{}", "Sylvia is ready to go. \n".truecolor(204, 71, 184).bold());
+        println!("{}", "Sylvia is ready to go. \n".magenta().bold());
         let _ = homeoptions();
     }
     else{
@@ -157,7 +157,7 @@ fn install(pkgname: &str) -> Result<(), Box<dyn std::error::Error>>{
     Ok(())
 }
 
-fn test(pkgname: &str){
+fn test(pkgname: &str) -> Result<(), Box<dyn std::error::Error>>{
     clearscreen::clear().expect("couldn't clear.");
 
     println!("testing package...");
@@ -177,7 +177,14 @@ fn test(pkgname: &str){
     print!("\x1b[?25h"); 
     std::io::stdout().flush().unwrap();
 
+    println!("\n{}", "Press any key to go back. \n".bold());
+
+    let term = Term::stdout();
+    let _key = term.read_key()?;
+
     let _ = display_pkginfo(&pkgname);
+
+    Ok(())
 }
 
 fn get_pkginfo(pkgname: &str) -> Result<Value, Box<dyn std::error::Error>>{
@@ -236,7 +243,7 @@ fn display_pkginfo(pkgname: &str) -> Result<(), Box<dyn std::error::Error>>{
             }
 
             Key::Char('t') | Key::Char('T') => {
-                test(&pkgname);
+                let _ = test(&pkgname);
                 break;
             }
 
