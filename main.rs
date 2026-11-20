@@ -6,7 +6,7 @@ use std::time::Duration;
 use serde_json::Value;
 use console::{Key, Term};
 
-use git2::{Direction, Repository};
+use git2::{Direction, Repository, DescribeFormatOptions, DescribeOptions};
 use semver::Version;
 
 use std::io;
@@ -33,11 +33,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
 
     let _ = homescreen();
 
-    match checkver(){
-        Ok(true) => println!("up to date"),
-        Ok(false) => println!("needs update"),
-        Err(e) => println!("git error: {}", e),
-    }
+    let verinfo: &str;
 
     Ok(())
 }
@@ -52,14 +48,17 @@ fn homescreen() -> Result<(), Box<dyn std::error::Error>>{
         .output()
         .expect("Couldn't get nix version.");
 
-    match checkver(){
-        Ok(true) => println!("up to date"),
-        Ok(false) => println!("needs update"),
-        Err(e) => println!("git error: {}", e),
-    }
-
     println!("nix version: {}", String::from_utf8_lossy(&nixver.stdout));
-    //println!("sylvia version: {}");
+
+    let (updated, current, latest) = checkver()?;
+    let verinfo = if updated{
+        format!("{} {}", "up-to-date! \ncurrent version: ", current).cyan().bold().to_string()
+    }
+    else{
+        format!("\noutdated! \ncurrent version: {} \nreccommended: {}", current, latest).red().bold().to_string()
+    };
+
+    println!("{} {} \n", "sylvia version:", &verinfo);
 
     if internetcheck(){
         println!("{}", "Sylvia is ready to go. \n".magenta().bold());
@@ -115,7 +114,8 @@ fn internetcheck() -> bool{
 
 const REPO_PATH: &str = std::env!("CARGO_MANIFEST_DIR");
 
-fn checkver() -> Result<bool, git2::Error> {
+// note to self: (current tag, latest tag)
+fn checkver() -> Result<(bool, String, String), git2::Error> {
     let repo = Repository::open(REPO_PATH)?;
 
     let mut remote = repo.find_remote("origin")?;
@@ -130,7 +130,19 @@ fn checkver() -> Result<bool, git2::Error> {
         .max();
 
     remote.disconnect()?;
-    Ok(latest.is_some())
+
+    let current = repo
+        .describe(DescribeOptions::new().describe_tags())?
+        .format(Some(DescribeFormatOptions::new().abbreviated_size(0)))?;
+
+    let updated = match &latest {
+        Some(ltst) => Version::parse(&current).map_or(false, |c| c >= *ltst),
+        None => true,
+    };
+
+    let latest = latest.map(|v| v.to_string()).unwrap_or_default();
+
+    Ok((updated, current, latest))
 }
 
 fn search(){
