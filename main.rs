@@ -33,8 +33,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
 
     let _ = homescreen();
 
-    let verinfo: &str;
-
     Ok(())
 }
 
@@ -50,15 +48,15 @@ fn homescreen() -> Result<(), Box<dyn std::error::Error>>{
 
     println!("nix version: {}", String::from_utf8_lossy(&nixver.stdout));
 
-    let (updated, current, latest) = checkver()?;
-    let verinfo = if updated{
+    let (updated, current, _latest) = checkver()?;
+    let _verinfo = if updated{
         format!("{} {}", "up-to-date! \ncurrent version: ", current).cyan().bold().to_string()
     }
     else{
-        format!("\noutdated! \ncurrent version: {} \nreccommended: {}", current, latest).red().bold().to_string()
+        format!("\noutdated! \ncurrent version: {} \nreccommended: {}", current, _latest).red().bold().to_string()
     };
 
-    println!("{} {} \n", "sylvia version:", &verinfo);
+    println!("{} {} \n", "sylvia version:", &_verinfo);
 
     if internetcheck(){
         println!("{}", "Sylvia is ready to go. \n".magenta().bold());
@@ -74,7 +72,12 @@ fn homescreen() -> Result<(), Box<dyn std::error::Error>>{
 fn homeoptions() -> Result<(), Box<dyn std::error::Error>>{
     print!("{} - {}", "S".black().on_yellow(), "Search for Packages  ".yellow());
     print!("{} - {}", "L".black().on_cyan(), "List installed Packages  ".cyan());
-    print!("{} - {}", "Q".black().on_red(), "Quit \n \n".red());
+
+    let (updated, _current, _latest) = checkver()?;
+
+    if !updated{
+        print!("{} - {}", "U".black().on_red(), "Update \n \n".red());
+    }
 
     std::io::stdout().flush().expect("output flushing didn't work.");
 
@@ -92,10 +95,9 @@ fn homeoptions() -> Result<(), Box<dyn std::error::Error>>{
                 break;
             }
 
-            Key::Char('q') | Key::Char('Q') => {
-                println!("{}", "Quitting, goodbye!".bold());
-                std::thread::sleep(std::time::Duration::from_millis(1000));
-                std::process::exit(0);
+            Key::Char('u') | Key::Char('U') => {
+                let _ = update();
+                break;
             }
 
             _ => {}
@@ -143,6 +145,16 @@ fn checkver() -> Result<(bool, String, String), git2::Error> {
     let latest = latest.map(|v| v.to_string()).unwrap_or_default();
 
     Ok((updated, current, latest))
+}
+
+fn update() -> Result<(), git2::Error>{
+    let repo = Repository::open(REPO_PATH)?;
+
+    let mut remote = repo.find_remote("origin")?;
+
+    remote.fetch(&[] as &[&str], None, None)?;
+
+    Ok(())
 }
 
 fn search(){
